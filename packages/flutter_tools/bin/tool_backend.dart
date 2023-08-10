@@ -21,6 +21,7 @@ Future<void> main(List<String> arguments) async {
     ?? pathJoin(<String>['lib', 'main.dart']);
   final String? codeSizeDirectory = Platform.environment['CODE_SIZE_DIRECTORY'];
   final String? localEngine = Platform.environment['LOCAL_ENGINE'];
+  final String? localEngineHost = Platform.environment['LOCAL_ENGINE_HOST'];
   final String? projectDirectory = Platform.environment['PROJECT_DIR'];
   final String? splitDebugInfo = Platform.environment['SPLIT_DEBUG_INFO'];
   final String? bundleSkSLPath = Platform.environment['BUNDLE_SKSL_PATH'];
@@ -44,11 +45,11 @@ Future<void> main(List<String> arguments) async {
     stderr.write('''
 ERROR: Requested build with Flutter local engine at '$localEngine'
 This engine is not compatible with FLUTTER_BUILD_MODE: '$buildMode'.
-You can fix this by updating the LOCAL_ENGINE environment variable, or
+You can fix this by updating the LOCAL_ENGINE and LOCAL_ENGINE_HOST environment variables, or
 by running:
-  flutter build <platform> --local-engine=host_$buildMode
+  flutter build <platform> --local-engine=host_$buildMode --local-engine-host=host_$buildMode
 or
-  flutter build <platform> --local-engine=host_${buildMode}_unopt
+  flutter build <platform> --local-engine=host_${buildMode}_unopt --local-engine-host=host_${buildMode}_unopt
 ========================================================================
 ''');
     exit(1);
@@ -72,6 +73,7 @@ or
         '--prefixed-errors',
       if (flutterEngine != null) '--local-engine-src-path=$flutterEngine',
       if (localEngine != null) '--local-engine=$localEngine',
+      if (localEngineHost != null) '--local-engine-host=$localEngineHost',
       'assemble',
       '--no-version-check',
       '--output=build',
