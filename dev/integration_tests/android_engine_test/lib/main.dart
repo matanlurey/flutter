@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MainApp());
+import 'src/plugins/draw_checkerboard.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final int textureId = await DrawCheckerboardPlugin.draw(256, 256);
+  runApp(MainApp(textureId: textureId));
 }
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  const MainApp({
+    required this.textureId,
+    super.key,
+  });
+
+  final int textureId;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       home: Scaffold(
         body: Center(
-          child: Text('Hello World!'),
+          child: SizedBox(
+            width: 256,
+            height: 256,
+            child: Texture(textureId: textureId),
+          ),
         ),
       ),
     );
