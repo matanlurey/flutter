@@ -1,6 +1,6 @@
 import 'dart:io' as io;
 
-import 'package:flutter_driver/flutter_driver.dart';
+import 'package:flutter_driver/src/experimental/flutter_driver.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -22,12 +22,15 @@ void main() async {
   });
 
   tearDown(() async {
-    await tempDir.delete(recursive: true);
+    // await tempDir.delete(recursive: true);
   });
 
   test('should render a checkerboard', () async {
     final SerializableFinder texture = find.byValueKey('checkerboard');
     await driver.waitFor(texture);
+
+    // Wait 2s to "stabilize" the checkerboard.
+    await Future<void>.delayed(const Duration(seconds: 2));
 
     // Use ADB to take a screenshot.
     final io.ProcessResult result = await io.Process.run(
@@ -48,8 +51,11 @@ void main() async {
       fail('Failed to pull screenshot: ${pullResult.stderr}');
     }
 
-    // Verify the screenshot exists.
+    // Verify the screenshot.
     final io.File file = io.File(p.join(tempDir.path, 'screenshot.png'));
-    expect(file.existsSync(), isTrue);
+    expect(
+      file,
+      matchesGoldenFile(p.join('test_driver', 'golden', 'checkerboard.png')),
+    );
   });
 }

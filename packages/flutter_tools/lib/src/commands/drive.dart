@@ -145,7 +145,11 @@ class DriveCommand extends RunCommandBase {
         help: 'Timeout the test after the given number of seconds. If the '
               '"--screenshot" option is provided, a screenshot will be taken '
               'before exiting. Defaults to no timeout.',
-        valueHelp: '360');
+        valueHelp: '360')
+      ..addFlag('update-goldens',
+        help: 'Whether matchesGoldenFile() calls within the test script should '
+              'update the golden files rather than test for an existing match.',
+      );
   }
 
   final Signals signals;
@@ -302,7 +306,9 @@ class DriveCommand extends RunCommandBase {
       final Future<int> testResultFuture = driverService.startTest(
         testFile,
         stringsArg('test-arguments'),
-        <String, String>{},
+        <String, String>{
+          if (boolArg('update-goldens')) 'FLUTTER_DRIVER_AUTO_UPDATE_GOLDENS': 'true',
+        },
         packageConfig,
         chromeBinary: stringArg('chrome-binary'),
         headless: boolArg('headless'),
