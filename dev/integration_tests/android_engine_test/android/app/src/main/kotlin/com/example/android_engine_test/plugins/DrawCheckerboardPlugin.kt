@@ -4,14 +4,16 @@ import android.graphics.Color
 import android.graphics.Paint
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
-import io.flutter.embedding.engine.plugins.lifecycle.FlutterLifecycleAdapter
+import io.flutter.embedding.engine.plugins.lifecycle.HiddenLifecycleReference
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.view.TextureRegistry.SurfaceProducer
+import kotlin.properties.Delegates
 
 // TODO(matanlurey): DefaultLifecycleObserver, ActivityAware are a result of bug XYZ, where Flutter
 // on Android API 29+ destroys ImageReaders when the app is backgrounded, and plugins need to detect
@@ -24,7 +26,10 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
 
     private lateinit var channel: MethodChannel
     private lateinit var binding: FlutterPlugin.FlutterPluginBinding
-    private lateinit var lifecycle: Lifecycle
+
+    private var lastWidth by Delegates.notNull<Int>()
+    private var lastHeight by Delegates.notNull<Int>()
+    private var lifecycle: Lifecycle? = null
     private var producer: SurfaceProducer? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -67,6 +72,9 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     }
 
     private fun draw(width: Int, height: Int) {
+        lastWidth = width
+        lastHeight = height
+
         if (producer == null) {
             producer = binding.textureRegistry.createSurfaceProducer()
         }
@@ -97,6 +105,27 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        lifecycle = FlutterLifecycleAdapter.get
+        val hidden = binding.lifecycle as HiddenLifecycleReference
+        lifecycle = hidden.lifecycle
+        lifecycle!!.addObserver(this)
+    }
+
+    override fun onDetachedFromActivity() {}
+
+    override fun onDetachedFromActivityForConfigChanges() {}
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        onAttachedToActivity(binding)
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        lifecycle?.removeObserver(this)
+    }
+
+    override fun onResume(owner: LifecycleOwner) {
+        if (producer == null) {
+            return
+        }
+        draw(lastWidth, lastHeight)
     }
 }
