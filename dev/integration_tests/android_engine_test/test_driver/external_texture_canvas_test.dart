@@ -6,28 +6,9 @@ import 'package:test/test.dart';
 
 void main() async {
   late final FlutterDriver driver;
-  late final bool impellerEnabled;
 
   setUpAll(() async {
-    impellerEnabled = io.Platform.environment.containsKey(
-      'FLUTTER_TEST_IMPELLER',
-    );
-
-    if (impellerEnabled) {
-      io.stderr.writeln('Impeller is enabled');
-    }
-
     driver = await FlutterDriver.connect();
-  });
-
-  tearDownAll(() async {
-    await driver.close();
-  });
-
-  late io.Directory tempDir;
-
-  setUp(() async {
-    tempDir = await io.Directory.systemTemp.createTemp('flutter_driver');
 
     // Enter immersive mode to hide the system UI.
     final io.ProcessResult result = await io.Process.run(
@@ -70,6 +51,16 @@ void main() async {
     }));
 
     await driver.waitUntilFirstFrameRasterized();
+  });
+
+  tearDownAll(() async {
+    await driver.close();
+  });
+
+  late io.Directory tempDir;
+
+  setUp(() async {
+    tempDir = await io.Directory.systemTemp.createTemp('flutter_driver');
   });
 
   tearDown(() async {
@@ -189,5 +180,5 @@ void main() async {
         ),
       ),
     );
-  }, solo: true);
+  });
 }

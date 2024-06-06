@@ -9,35 +9,34 @@ See <https://github.com/flutter/flutter/issues/148028> for more information.
 
 ## Usage
 
-Currently the app renders a checkerboard-pattern using the Android platform,
-and using the Android embedder plugin model, passes that `textureId` to the
-Flutter app, which renders a `Texture` widget. The Flutter app then uses the
-`textureId` to render the checkerboard pattern:
-
-<img src="test_driver/golden/checkerboard.png" width="200">
-
-To run the app, assuming you're in `dev/integration_tests/android_engine_test`:
+To run a test, assuming you're in `dev/integration_tests/android_engine_test`:
 
 ```sh
-flutter run
+flutter run <lib/main.dart>
 ```
 
 To run the integration tests:
 
 ```sh
-flutter drive
+flutter drive <lib/main.dart>
 ```
 
 To update the golden files:
 
 ```sh
-flutter drive --update-goldens
+flutter drive <lib/main.dart> --update-goldens
+```
+
+To run with Impeller enabled:
+
+```sh
+flutter drive <lib/main.dart> --enable-impeller
 ```
 
 To make it easier to view the end-state, use `--keep-app-running`:
 
 ```sh
-flutter drive --keep-app-running
+flutter drive <lib/main.dart> --keep-app-running
 ```
 
 Note that the golden files are currently stored in the
@@ -45,16 +44,32 @@ Note that the golden files are currently stored in the
 production release we would use Skia Gold and/or support multiple platforms as
 well as multiple configurations similar to `flutter_test`.
 
+## Tests
+
+Where `<lib/main.dart>` is one of the following:
+
+### `lib/external_texture_canvas.dart`
+
+Uses a `Texture` rendered from an Android `Canvas` to render a checkerboard:
+
+<img src="test_driver/golden/checkerboard.png" width="200">
+
+### `lib/external_texture_media.dart`
+
 ## Limitations
 
 ### Platforms
 
-- Currently only Android is supported.
+- Only Android is supported, and:
+  - The driver script disables animations, and does not reenable them after the
+    test is complete.
+  - There is no way to force the usage of Surface Textures on >= API 29.
 
 ### Screenshots
 
 - The comparator is currently a simple pixel-by-pixel comparison without any
   tolerance or thresholding.
+- No suffixes (i.e. "Impeller Enabled") are supported.
 
 ## Changes
 
