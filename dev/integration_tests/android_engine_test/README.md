@@ -14,7 +14,7 @@ and using the Android embedder plugin model, passes that `textureId` to the
 Flutter app, which renders a `Texture` widget. The Flutter app then uses the
 `textureId` to render the checkerboard pattern:
 
-<img src="test_driver/golden/checkerboard.png" width="200" />
+<img src="test_driver/golden/checkerboard.png" width="200">
 
 To run the app, assuming you're in `dev/integration_tests/android_engine_test`:
 
@@ -34,19 +34,27 @@ To update the golden files:
 flutter drive --update-goldens
 ```
 
-Note that the golden files are currently stored in the `test_driver` directory
-for simplicity; for a production release we would use Skia Gold and/or support
-multiple platforms as well as multiple configurations similar to `flutter_test`.
+To make it easier to view the end-state, use `--keep-app-running`:
+
+```sh
+flutter drive --keep-app-running
+```
+
+Note that the golden files are currently stored in the
+[`test_driver/golden`](./test_driver/golden/) directory for simplicity; for a
+production release we would use Skia Gold and/or support multiple platforms as
+well as multiple configurations similar to `flutter_test`.
 
 ## Limitations
 
-The screenshot is currently being taken as-is by `adb shell screencap` by the
-test script, which means:
+### Platforms
 
-- No cropping or scaling is done to the screenshot.
+- Currently only Android is supported.
 
-In addition, the comparator is currently a simple pixel-by-pixel comparison
-without any tolerance or thresholding.
+### Screenshots
+
+- The comparator is currently a simple pixel-by-pixel comparison without any
+  tolerance or thresholding.
 
 ## Changes
 

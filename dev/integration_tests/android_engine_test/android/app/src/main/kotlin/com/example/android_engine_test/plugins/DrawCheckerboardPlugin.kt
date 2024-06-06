@@ -22,6 +22,7 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     ActivityAware {
     companion object {
         const val SQUARES = 8
+        const val IMAGE_READER_WORKAROUND = false
     }
 
     private lateinit var channel: MethodChannel
@@ -105,6 +106,9 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        if (!IMAGE_READER_WORKAROUND) {
+            return
+        }
         val hidden = binding.lifecycle as HiddenLifecycleReference
         lifecycle = hidden.lifecycle
         lifecycle!!.addObserver(this)
@@ -115,14 +119,23 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     override fun onDetachedFromActivityForConfigChanges() {}
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        if (!IMAGE_READER_WORKAROUND) {
+            return
+        }
         onAttachedToActivity(binding)
     }
 
     override fun onDestroy(owner: LifecycleOwner) {
+        if (!IMAGE_READER_WORKAROUND) {
+            return
+        }
         lifecycle?.removeObserver(this)
     }
 
     override fun onResume(owner: LifecycleOwner) {
+        if (!IMAGE_READER_WORKAROUND) {
+            return
+        }
         if (producer == null) {
             return
         }

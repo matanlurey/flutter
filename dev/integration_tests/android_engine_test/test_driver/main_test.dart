@@ -5,9 +5,18 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() async {
-  late FlutterDriver driver;
+  late final FlutterDriver driver;
+  late final bool impellerEnabled;
 
   setUpAll(() async {
+    impellerEnabled = io.Platform.environment.containsKey(
+      'FLUTTER_TEST_IMPELLER',
+    );
+
+    if (impellerEnabled) {
+      io.stderr.writeln('Impeller is enabled');
+    }
+
     driver = await FlutterDriver.connect();
   });
 
@@ -102,6 +111,83 @@ void main() async {
     final SerializableFinder texture = find.byValueKey('checkerboard');
     await driver.waitFor(texture);
 
-    //
-  });
+    // Simulate home button press.
+    final io.ProcessResult result = await io.Process.run(
+      'adb',
+      <String>['shell', 'input', 'keyevent', 'KEYCODE_HOME'],
+    );
+
+    if (result.exitCode != 0) {
+      fail('Failed to simulate home button press: ${result.stderr}');
+    }
+
+    // Force a trim memory.
+    final io.ProcessResult trimResult = await io.Process.run(
+      'adb',
+      <String>[
+        'shell',
+        'am',
+        'send-trim-memory',
+        'com.example.android_engine_test',
+        'MODERATE',
+      ],
+    );
+
+    if (trimResult.exitCode != 0) {
+      fail('Failed to force a trim memory: ${trimResult.stderr}');
+    }
+
+    // Switch back to the app (com.example.android_engine_test/.MainActivity).
+    final io.ProcessResult resumeResult = await io.Process.run(
+      'adb',
+      <String>[
+        'shell',
+        'am',
+        'start',
+        '-n',
+        'com.example.android_engine_test/.MainActivity',
+      ],
+    );
+
+    if (resumeResult.exitCode != 0) {
+      fail('Failed to resume the app: ${resumeResult.stderr}');
+    }
+
+    // Verify the checkerboard is still rendered.
+    await driver.waitFor(texture);
+
+    // Use ADB to take a screenshot.
+    await Future<void>.delayed(const Duration(seconds: 1));
+    final io.ProcessResult screenshotResult = await io.Process.run(
+      'adb',
+      <String>['shell', 'screencap', '-p', '/sdcard/screenshot.png'],
+    );
+
+    if (screenshotResult.exitCode != 0) {
+      fail('Failed to take screenshot: ${screenshotResult.stderr}');
+    }
+
+    // Pull the screenshot from the device to the temp directory.
+    final io.ProcessResult pullResult = await io.Process.run(
+      'adb',
+      <String>['pull', '/sdcard/screenshot.png', tempDir.path],
+    );
+
+    if (pullResult.exitCode != 0) {
+      fail('Failed to pull screenshot: ${pullResult.stderr}');
+    }
+
+    // Verify the screenshot.
+    final io.File file = io.File(p.join(tempDir.path, 'screenshot.png'));
+    expect(
+      file,
+      matchesGoldenFile(
+        p.join(
+          'test_driver',
+          'golden',
+          'checkerboard-after-resume.png',
+        ),
+      ),
+    );
+  }, solo: true);
 }
