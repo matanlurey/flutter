@@ -43,8 +43,6 @@ multiple platforms as well as multiple configurations similar to `flutter_test`.
 The screenshot is currently being taken as-is by `adb shell screencap` by the
 test script, which means:
 
-- The navigation bar and device shell (clock) are included in the screenshot.
-- An arbitrary duration of 2s is used to wait for the screenshot to be taken.
 - No cropping or scaling is done to the screenshot.
 
 In addition, the comparator is currently a simple pixel-by-pixel comparison

@@ -19,18 +19,57 @@ void main() async {
 
   setUp(() async {
     tempDir = await io.Directory.systemTemp.createTemp('flutter_driver');
+
+    // Enter immersive mode to hide the system UI.
+    final io.ProcessResult result = await io.Process.run(
+      'adb',
+      <String>[
+        'shell',
+        'settings',
+        'put',
+        'global',
+        'policy_control',
+        'immersive.full=*'
+      ],
+    );
+
+    if (result.exitCode != 0) {
+      fail('Failed to enter immersive mode: ${result.stderr}');
+    }
+
+    // Disable animations to make the test more stable.
+    await Future.wait(const <String>[
+      'animator_duration_scale',
+      'transition_animation_scale',
+      'window_animation_scale',
+    ].map((String key) async {
+      final io.ProcessResult result = await io.Process.run(
+        'adb',
+        <String>[
+          'shell',
+          'settings',
+          'put',
+          'global',
+          key,
+          '0.0',
+        ],
+      );
+
+      if (result.exitCode != 0) {
+        fail('Failed to disable animations: ${result.stderr}');
+      }
+    }));
+
+    await driver.waitUntilFirstFrameRasterized();
   });
 
   tearDown(() async {
-    // await tempDir.delete(recursive: true);
+    await tempDir.delete(recursive: true);
   });
 
   test('should render a checkerboard', () async {
     final SerializableFinder texture = find.byValueKey('checkerboard');
     await driver.waitFor(texture);
-
-    // Wait 2s to "stabilize" the checkerboard.
-    await Future<void>.delayed(const Duration(seconds: 2));
 
     // Use ADB to take a screenshot.
     final io.ProcessResult result = await io.Process.run(
@@ -57,5 +96,12 @@ void main() async {
       file,
       matchesGoldenFile(p.join('test_driver', 'golden', 'checkerboard.png')),
     );
+  });
+
+  test('should stay rendered after background/resume', () async {
+    final SerializableFinder texture = find.byValueKey('checkerboard');
+    await driver.waitFor(texture);
+
+    //
   });
 }
