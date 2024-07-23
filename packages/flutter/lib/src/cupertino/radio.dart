@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+///
+/// @docImport 'checkbox.dart';
+/// @docImport 'slider.dart';
+/// @docImport 'switch.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -71,6 +78,7 @@ class CupertinoRadio<T> extends StatefulWidget {
     required this.value,
     required this.groupValue,
     required this.onChanged,
+    this.mouseCursor,
     this.toggleable = false,
     this.activeColor,
     this.inactiveColor,
@@ -120,6 +128,24 @@ class CupertinoRadio<T> extends StatefulWidget {
   /// )
   /// ```
   final ValueChanged<T?>? onChanged;
+
+  /// The cursor for a mouse pointer when it enters or is hovering over the
+  /// widget.
+  ///
+  /// Resolves in the following states:
+  ///
+  ///  * [WidgetState.selected].
+  ///  * [WidgetState.focused].
+  ///  * [WidgetState.disabled].
+  ///
+  /// Defaults to [defaultMouseCursor].
+  ///
+  /// See also:
+  ///
+  ///  * [WidgetStateMouseCursor], a [MouseCursor] that implements
+  ///    `WidgetStateProperty` which is used in APIs that need to accept
+  ///    either a [MouseCursor] or a [WidgetStateProperty].
+  final WidgetStateProperty<MouseCursor>? mouseCursor;
 
   /// Set to true if this radio button is allowed to be returned to an
   /// indeterminate state by selecting it again when selected.
@@ -179,6 +205,18 @@ class CupertinoRadio<T> extends StatefulWidget {
   final bool autofocus;
 
   bool get _selected => value == groupValue;
+
+  /// The default [mouseCursor] of a [CupertinoRadio].
+  ///
+  /// If [onChanged] is null, indicating the radio button is disabled,
+  /// [SystemMouseCursors.basic] is used. Otherwise, [SystemMouseCursors.click]
+  /// is used on Web, and [SystemMouseCursors.basic] is used on other platforms.
+  static WidgetStateProperty<MouseCursor> defaultMouseCursor(Function? onChanged) {
+    final MouseCursor mouseCursor = (onChanged != null && kIsWeb)
+      ? SystemMouseCursors.click
+      : SystemMouseCursors.basic;
+    return WidgetStateProperty.all<MouseCursor>(mouseCursor);
+  }
 
   @override
   State<CupertinoRadio<T>> createState() => _CupertinoRadioState<T>();
@@ -258,6 +296,7 @@ class _CupertinoRadioState<T> extends State<CupertinoRadio<T>> with TickerProvid
       checked: widget._selected,
       selected: accessibilitySelected,
       child: buildToggleable(
+        mouseCursor: widget.mouseCursor ?? CupertinoRadio.defaultMouseCursor(widget.onChanged),
         focusNode: widget.focusNode,
         autofocus: widget.autofocus,
         onFocusChange: onFocusChange,
@@ -309,7 +348,6 @@ class _RadioPainter extends ToggleablePainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-
     final Offset center = (Offset.zero & size).center;
 
     final Paint paint = Paint()

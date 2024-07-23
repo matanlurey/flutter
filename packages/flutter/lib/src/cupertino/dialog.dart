@@ -2,11 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+///
+/// @docImport 'button.dart';
+/// @docImport 'route.dart';
+library;
+
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'colors.dart';
@@ -52,7 +60,8 @@ const TextStyle _kCupertinoDialogActionStyle = TextStyle(
 
 // CupertinoActionSheet-specific text styles.
 const TextStyle _kActionSheetActionStyle = TextStyle(
-  fontFamily: 'CupertinoSystemText',
+  // The fontSize and fontWeight may be adjusted when the text is rendered.
+  fontFamily: 'CupertinoSystemDisplay',
   inherit: false,
   fontSize: 17.0,
   fontWeight: FontWeight.w400,
@@ -64,8 +73,9 @@ const TextStyle _kActionSheetContentStyle = TextStyle(
   inherit: false,
   fontSize: 13.0,
   fontWeight: FontWeight.w400,
-  color: _kActionSheetContentTextColor,
   textBaseline: TextBaseline.alphabetic,
+  // The `color` is configured by _kActionSheetContentTextColor to be dynamic on
+  // context.
 );
 
 // Generic constants shared between Dialog and ActionSheet.
@@ -84,13 +94,18 @@ const double _kDialogMinButtonHeight = 45.0;
 const double _kDialogMinButtonFontSize = 10.0;
 
 // ActionSheet specific constants.
-const double _kActionSheetEdgeHorizontalPadding = 8.0;
+const double _kActionSheetEdgePadding = 8.0;
 const double _kActionSheetCancelButtonPadding = 8.0;
-const double _kActionSheetEdgeVerticalPadding = 10.0;
 const double _kActionSheetContentHorizontalPadding = 16.0;
-const double _kActionSheetContentVerticalPadding = 12.0;
-const double _kActionSheetButtonHeight = 56.0;
-const double _kActionSheetActionsSectionMinHeight = 84.3;
+const double _kActionSheetContentVerticalPadding = 13.5;
+const double _kActionSheetActionsSectionMinHeight = 84.0;
+const double _kActionSheetButtonHorizontalPadding = 10.0;
+
+// According to experimenting on the simulator, the height of action sheet
+// buttons is proportional to the font size down to a minimal height.
+const double _kActionSheetButtonMinHeight = 57.17;
+const double _kActionSheetButtonVerticalPaddingFactor = 0.4;
+const double _kActionSheetButtonVerticalPaddingBase = 1.8;
 
 // A translucent color that is painted on top of the blurred backdrop as the
 // dialog's background color
@@ -103,35 +118,53 @@ const Color _kDialogColor = CupertinoDynamicColor.withBrightness(
 // Translucent light gray that is painted on top of the blurred backdrop as the
 // background color of a pressed button.
 // Eyeballed from iOS 13 beta simulator.
-const Color _kPressedColor = CupertinoDynamicColor.withBrightness(
+const Color _kDialogPressedColor = CupertinoDynamicColor.withBrightness(
   color: Color(0xFFE1E1E1),
   darkColor: Color(0xFF2E2E2E),
 );
 
+// Translucent light gray that is painted on top of the blurred backdrop as the
+// background color of a pressed button.
+// Eyeballed from iOS 17 simulator.
+const Color _kActionSheetPressedColor = CupertinoDynamicColor.withBrightness(
+  color: Color(0xCAE0E0E0),
+  darkColor: Color(0xC1515151),
+);
+
+const Color _kActionSheetCancelColor = CupertinoDynamicColor.withBrightness(
+  color: Color(0xFFFFFFFF),
+  darkColor: Color(0xFF2C2C2C),
+);
 const Color _kActionSheetCancelPressedColor = CupertinoDynamicColor.withBrightness(
   color: Color(0xFFECECEC),
-  darkColor: Color(0xFF49494B),
+  darkColor: Color(0xFF494949),
 );
 
 // Translucent, very light gray that is painted on top of the blurred backdrop
 // as the action sheet's background color.
 // TODO(LongCatIsLooong): https://github.com/flutter/flutter/issues/39272. Use
 // System Materials once we have them.
-// Extracted from https://developer.apple.com/design/resources/.
+// Eyeballed from iOS 17 simulator.
 const Color _kActionSheetBackgroundColor = CupertinoDynamicColor.withBrightness(
-  color: Color(0xC7F9F9F9),
-  darkColor: Color(0xC7252525),
+  color: Color(0xC8FCFCFC),
+  darkColor: Color(0xBE292929),
 );
 
 // The gray color used for text that appears in the title area.
-// Extracted from https://developer.apple.com/design/resources/.
-const Color _kActionSheetContentTextColor = Color(0xFF8F8F8F);
+// Eyeballed from iOS 17 simulator.
+const Color _kActionSheetContentTextColor = CupertinoDynamicColor.withBrightness(
+  color: Color(0x851D1D1D),
+  darkColor: Color(0x96F1F1F1),
+);
 
 // Translucent gray that is painted on top of the blurred backdrop in the gap
 // areas between the content section and actions section, as well as between
 // buttons.
-// Eye-balled from iOS 13 beta simulator.
-const Color _kActionSheetButtonDividerColor = _kActionSheetContentTextColor;
+// Eyeballed from iOS 17 simulator.
+const Color _kActionSheetButtonDividerColor = CupertinoDynamicColor.withBrightness(
+  color: Color(0xD4C9C9C9),
+  darkColor: Color(0xD57D7D7D),
+);
 
 // The alert dialog layout policy changes depending on whether the user is using
 // a "regular" font size vs a "large" font size. This is a spectrum. There are
@@ -400,6 +433,14 @@ class _CupertinoAlertDialogState extends State<CupertinoAlertDialog> {
 /// Additionally, the white paint can be disabled to render a blurred rounded
 /// rectangle without any color (similar to iOS's volume control popup).
 ///
+/// {@tool dartpad}
+/// This sample shows how to use a [CupertinoPopupSurface]. The [CupertinoPopupSurface]
+/// shows a model popup from the bottom of the screen.
+/// Toggling the switch to configure its surface color.
+///
+/// ** See code in examples/api/lib/cupertino/dialog/cupertino_popup_surface.0.dart **
+/// {@end-tool}
+///
 /// See also:
 ///
 ///  * [CupertinoAlertDialog], which is a dialog with a title, content, and
@@ -441,6 +482,300 @@ class CupertinoPopupSurface extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: _kBlurAmount, sigmaY: _kBlurAmount),
         child: contents,
       ),
+    );
+  }
+}
+
+typedef _HitTester = HitTestResult Function(Offset location);
+
+// Recognizes taps with possible sliding during the tap.
+//
+// This recognizer only tracks one pointer at a time (called the primary
+// pointer), and other pointers added while the primary pointer is alive are
+// ignored and can not be used by other gestures either. After the primary
+// pointer ends, the pointer added next becomes the new primary pointer (which
+// starts a new gesture sequence).
+//
+// This recognizer only allows [kPrimaryMouseButton].
+class _SlidingTapGestureRecognizer extends VerticalDragGestureRecognizer {
+  _SlidingTapGestureRecognizer({
+    super.debugOwner,
+  }) {
+    dragStartBehavior = DragStartBehavior.down;
+  }
+
+  /// Called whenever the primary pointer moves regardless of whether drag has
+  /// started.
+  ///
+  /// The parameter is the global position of the primary pointer.
+  ///
+  /// This is similar to `onUpdate`, but allows the caller to track the primary
+  /// pointer's location before the drag starts, which is useful to enhance
+  /// responsiveness.
+  ValueSetter<Offset>? onResponsiveUpdate;
+
+  /// Called whenever the primary pointer is lifted regardless of whether drag
+  /// has started.
+  ///
+  /// The parameter is the global position of the primary pointer.
+  ///
+  /// This is similar to `onEnd`, but allows know the primary pointer's final
+  /// location even if the drag never started, which is useful to enhance
+  /// responsiveness.
+  ValueSetter<Offset>? onResponsiveEnd;
+
+  int? _primaryPointer;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _primaryPointer ??= event.pointer;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    if (pointer == _primaryPointer) {
+      _primaryPointer = null;
+    }
+    super.rejectGesture(pointer);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event.pointer == _primaryPointer) {
+      if (event is PointerMoveEvent) {
+        onResponsiveUpdate?.call(event.position);
+      }
+      // Sliding tap needs to handle 'up' events differently compared to typical
+      // drag gestures. If there's another gesture recognizer (like scrolling)
+      // competing and the pointer hasn't moved beyond the tolerance limit
+      // (slop), this gesture must still be accepted.
+      //
+      // Simply calling `accept()` here to handle this won't work because it
+      // would break backward compatibility with legacy buttons (see
+      // https://github.com/flutter/flutter/issues/150980 for more details).
+      // Legacy buttons recognize taps using `GestureDetector.onTap`, which
+      // neither accepts nor rejects for short taps. Instead, they wait for the
+      // default resolution as the last contender in the gesture arena.
+      //
+      // Therefore, this gesture should also follow the same strategy of not
+      // immediately accepting or rejecting. This allows tap gestures to take
+      // precedence for being inner, while sliding taps can take precedence over
+      // scroll gestures when the latter give up.
+      if (event is PointerUpEvent) {
+        stopTrackingPointer(_primaryPointer!);
+        onResponsiveEnd?.call(event.position);
+        _primaryPointer = null;
+        // Do not call `super.handleEvent`, which gives up the pointer and thus
+        // rejects the gesture.
+        return;
+      }
+      if (event is PointerCancelEvent) {
+        _primaryPointer = null;
+      }
+    }
+    super.handleEvent(event);
+  }
+
+  @override
+  String get debugDescription => 'tap slide';
+}
+
+// A region (typically a button) that can receive entering, exiting, and
+// updating events of a "sliding tap" gesture.
+//
+// Some Cupertino widgets, such as action sheets or dialogs, allow the user to
+// select buttons using "sliding taps", where the user can drag around after
+// pressing on the screen, and whichever button the drag ends in is selected.
+//
+// This class is used to define the regions that sliding taps recognize. This
+// class must be provided to a `MetaData` widget as `data`, and is typically
+// implemented by a widget state class. When an eligible dragging gesture
+// enters, leaves, or ends this `MetaData` widget, corresponding methods of this
+// class will be called.
+//
+// Multiple `_ActionSheetSlideTarget`s might be nested.
+// `_TargetSelectionGestureRecognizer` uses a simple algorithm that only
+// compares if the inner-most slide target has changed (which suffices our use
+// case).  Semantically, this means that all outer targets will be treated as
+// identical to the inner-most one, i.e. when the pointer enters or leaves a
+// slide target, the corresponding method will be called on all targets that
+// nest it.
+abstract class _ActionSheetSlideTarget {
+  // A pointer has entered this region.
+  //
+  // This includes:
+  //
+  //  * The pointer has moved into this region from outside.
+  //  * The point has contacted the screen in this region. In this case, this
+  //    method is called as soon as the pointer down event occurs regardless of
+  //    whether the gesture wins the arena immediately.
+  //
+  // The `fromPointerDown` should be true if this callback is triggered by a
+  // PointerDownEvent, i.e. the second case from the list above.
+  void didEnter({required bool fromPointerDown});
+
+  // A pointer has exited this region.
+  //
+  // This includes:
+  //  * The pointer has moved out of this region.
+  //  * The pointer is no longer in contact with the screen.
+  //  * The pointer is canceled.
+  //  * The gesture loses the arena.
+  //  * The gesture ends. In this case, this method is called immediately
+  //    before [didConfirm].
+  void didLeave();
+
+  // The drag gesture is completed in this region.
+  //
+  // This method is called immediately after a [didLeave].
+  void didConfirm();
+}
+
+// Recognizes sliding taps and thereupon interacts with
+// `_ActionSheetSlideTarget`s.
+class _TargetSelectionGestureRecognizer extends GestureRecognizer {
+  _TargetSelectionGestureRecognizer({super.debugOwner, required this.hitTest})
+    : _slidingTap = _SlidingTapGestureRecognizer(debugOwner: debugOwner) {
+    _slidingTap
+      ..onDown = _onDown
+      ..onResponsiveUpdate = _onUpdate
+      ..onResponsiveEnd = _onEnd
+      ..onCancel = _onCancel;
+  }
+
+  final _HitTester hitTest;
+
+  final List<_ActionSheetSlideTarget> _currentTargets = <_ActionSheetSlideTarget>[];
+  final _SlidingTapGestureRecognizer _slidingTap;
+
+  @override
+  void acceptGesture(int pointer) {
+    _slidingTap.acceptGesture(pointer);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    _slidingTap.rejectGesture(pointer);
+  }
+
+  @override
+  void addPointer(PointerDownEvent event) {
+    _slidingTap.addPointer(event);
+  }
+
+  @override
+  void addPointerPanZoom(PointerPanZoomStartEvent event) {
+    _slidingTap.addPointerPanZoom(event);
+  }
+
+  @override
+  void dispose() {
+    _slidingTap.dispose();
+    super.dispose();
+  }
+
+  // Collect the `_ActionSheetSlideTarget`s that are currently hit by the
+  // pointer, check whether the current target have changed, and invoke their
+  // methods if necessary.
+  //
+  // The `fromPointerDown` should be true if this update is triggered by a
+  // PointerDownEvent.
+  void _updateDrag(Offset pointerPosition, {required bool fromPointerDown}) {
+    final HitTestResult result = hitTest(pointerPosition);
+
+    // A slide target might nest other targets, therefore multiple targets might
+    // be found.
+    final List<_ActionSheetSlideTarget> foundTargets = <_ActionSheetSlideTarget>[];
+    for (final HitTestEntry entry in result.path) {
+      if (entry.target case final RenderMetaData target) {
+        if (target.metaData is _ActionSheetSlideTarget) {
+          foundTargets.add(target.metaData as _ActionSheetSlideTarget);
+        }
+      }
+    }
+
+    // Compare whether the active target has changed by simply comparing the
+    // first (inner-most) avatar of the nest, ignoring the cases where
+    // _currentTargets intersect with foundTargets (see _ActionSheetSlideTarget's
+    // document for more explanation).
+    if (_currentTargets.firstOrNull != foundTargets.firstOrNull) {
+      for (final _ActionSheetSlideTarget target in _currentTargets) {
+        target.didLeave();
+      }
+      _currentTargets
+        ..clear()
+        ..addAll(foundTargets);
+      for (final _ActionSheetSlideTarget target in _currentTargets) {
+        target.didEnter(fromPointerDown: fromPointerDown);
+      }
+    }
+  }
+
+  void _onDown(DragDownDetails details) {
+    _updateDrag(details.globalPosition, fromPointerDown: true);
+  }
+
+  void _onUpdate(Offset globalPosition) {
+    _updateDrag(globalPosition, fromPointerDown: false);
+  }
+
+  void _onEnd(Offset globalPosition) {
+    _updateDrag(globalPosition, fromPointerDown: false);
+    for (final _ActionSheetSlideTarget target in _currentTargets) {
+      target.didConfirm();
+    }
+    _currentTargets.clear();
+  }
+
+  void _onCancel() {
+    for (final _ActionSheetSlideTarget target in _currentTargets) {
+      target.didLeave();
+    }
+    _currentTargets.clear();
+  }
+
+  @override
+  String get debugDescription => 'target selection';
+}
+
+// The gesture detector used by action sheets.
+//
+// This gesture detector only recognizes one gesture,
+// `_TargetSelectionGestureRecognizer`.
+//
+// This widget's child might contain another VerticalDragGestureRecognizer if
+// the actions section or the content section scrolls. Conveniently, Flutter's
+// gesture algorithm makes the inner gesture take priority.
+class _ActionSheetGestureDetector extends StatelessWidget {
+  const _ActionSheetGestureDetector({
+    this.child,
+  });
+
+  final Widget? child;
+
+  HitTestResult _hitTest(BuildContext context, Offset globalPosition) {
+    final int viewId = View.of(context).viewId;
+    final HitTestResult result = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(result, globalPosition, viewId);
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<Type, GestureRecognizerFactory> gestures = <Type, GestureRecognizerFactory>{};
+    gestures[_TargetSelectionGestureRecognizer] = GestureRecognizerFactoryWithHandlers<_TargetSelectionGestureRecognizer>(
+      () => _TargetSelectionGestureRecognizer(
+        debugOwner: this,
+        hitTest: (Offset globalPosition) => _hitTest(context, globalPosition),
+      ),
+      (_TargetSelectionGestureRecognizer instance) {}
+    );
+
+    return RawGestureDetector(
+      excludeFromSemantics: true,
+      gestures: gestures,
+      child: child,
     );
   }
 }
@@ -518,7 +853,7 @@ class CupertinoActionSheet extends StatefulWidget {
 
   /// The set of actions that are displayed for the user to select.
   ///
-  /// Typically this is a list of [CupertinoActionSheetAction] widgets.
+  /// This must be a list of [CupertinoActionSheetAction] widgets.
   final List<Widget>? actions;
 
   /// A scroll controller that can be used to control the scrolling of the
@@ -537,7 +872,7 @@ class CupertinoActionSheet extends StatefulWidget {
   /// The optional cancel button that is grouped separately from the other
   /// actions.
   ///
-  /// Typically this is an [CupertinoActionSheetAction] widget.
+  /// This must be a [CupertinoActionSheetAction] widget.
   final Widget? cancelButton;
 
   @override
@@ -564,10 +899,16 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
 
   bool get hasContent => widget.title != null || widget.message != null;
 
-  Widget _buildContent(BuildContext context) {
-    final List<Widget> content = <Widget>[];
-    if (hasContent) {
-      final Widget titleSection = _CupertinoAlertContentSection(
+  Widget? _buildContent(BuildContext context) {
+    if (!hasContent) {
+      return null;
+    }
+    final TextStyle textStyle = _kActionSheetContentStyle.copyWith(
+      color: CupertinoDynamicColor.resolve(_kActionSheetContentTextColor, context),
+    );
+    return ColoredBox(
+      color: CupertinoDynamicColor.resolve(_kActionSheetBackgroundColor, context),
+      child: _CupertinoAlertContentSection(
         title: widget.title,
         message: widget.message,
         scrollController: _effectiveMessageScrollController,
@@ -584,22 +925,12 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
           top: widget.title == null ? _kActionSheetContentVerticalPadding : 0.0,
         ),
         titleTextStyle: widget.message == null
-            ? _kActionSheetContentStyle
-            : _kActionSheetContentStyle.copyWith(fontWeight: FontWeight.w600),
+            ? textStyle
+            : textStyle.copyWith(fontWeight: FontWeight.w600),
         messageTextStyle: widget.title == null
-            ? _kActionSheetContentStyle.copyWith(fontWeight: FontWeight.w600)
-            : _kActionSheetContentStyle,
+            ? textStyle.copyWith(fontWeight: FontWeight.w600)
+            : textStyle,
         additionalPaddingBetweenTitleAndMessage: const EdgeInsets.only(top: 4.0),
-      );
-      content.add(Flexible(child: titleSection));
-    }
-
-    return ColoredBox(
-      color: CupertinoDynamicColor.resolve(_kActionSheetBackgroundColor, context),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: content,
       ),
     );
   }
@@ -618,9 +949,86 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
     );
   }
 
+  // Given data point (x1, y1) and (x2, y2), derive the y corresponding to x
+  // using linear interpolation between the two data points, and extrapolates
+  // flatly beyond these points.
+  //
+  //              (x2, y2)
+  //                _____________
+  //               /
+  //              /
+  //    _________/
+  //           (x1, y1)
+  static double _lerp(double x, double x1, double y1, double x2, double y2) {
+    if (x <= x1) {
+      return y1;
+    } else if (x >= x2) {
+      return y2;
+    } else {
+      return lerpDouble(y1, y2, (x - x1) / (x2 - x1))!;
+    }
+  }
+
+  // Derive the top padding, which is the distance between the top of a
+  // full-height action sheet and the top of the safe area.
+  //
+  // The algorithm and its values are derived from measuring on the simulator.
+  double _topPadding(BuildContext context) {
+    if (MediaQuery.orientationOf(context) == Orientation.landscape) {
+      return _kActionSheetEdgePadding;
+    }
+
+    // The top padding in portrait mode is in general close to the top view
+    // padding, but not always equal:
+    //
+    //                            | view padding | action sheet padding | ratio
+    //   No notch (eg. iPhone SE) |     20.0     |        20.0          | 1.0
+    //   Notch (eg. iPhone 13)    |     47.0     |        47.0          | 1.0
+    //   Capsule (eg. iPhone 15)  |     59.0     |        54.0          | 0.915
+    //
+    // Currently, we cannot determine why the result changes on "capsules."
+    // Therefore, we'll hard code this rule, given the limited types of actual
+    // devices. To provide an algorithm that accepts arbitrary view padding, this
+    // function calculates the ratio as a continuous curve with linear
+    // interpolation.
+
+    // The x for lerp is the top view padding, while the y is ratio of
+    // action sheet padding versus top view padding.
+    const double viewPaddingData1 = 47.0;
+    const double paddingRatioData1 = 1.0;
+    const double viewPaddingData2 = 59.0;
+    const double paddingRatioData2 = 54.0 / 59.0;
+
+    final double currentViewPadding = MediaQuery.viewPaddingOf(context).top;
+
+    final double currentPaddingRatio = _lerp(
+      /* x= */currentViewPadding,
+      /* x1, y1= */viewPaddingData1, paddingRatioData1,
+      /* x2, y2= */viewPaddingData2, paddingRatioData2,
+    );
+    final double padding = (currentPaddingRatio * currentViewPadding).roundToDouble();
+    // In case there is no view padding, there should still be some space
+    // between the action sheet and the edge.
+    return math.max(padding, _kDialogEdgePadding);
+  }
+
   @override
   Widget build(BuildContext context) {
     assert(debugCheckHasMediaQuery(context));
+
+    /*
+     *  ╭─────────────────╮  ↑                ↑
+     *  │    The title    │ Content section   |
+     *  │   The message   │  ↓                |
+     *  ├─────────────────┤  ↑             Main sheet
+     *  │    Action 1     │  |                |
+     *  ├─────────────────┤ Actions section   |
+     *  │    Action 2     │  |                |
+     *  ╰─────────────────╯  ↓                ↓
+     *  ╭─────────────────╮
+     *  │     Cancel      │
+     *  ╰─────────────────╯
+     */
 
     final List<Widget> children = <Widget>[
       Flexible(
@@ -630,10 +1038,9 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
             filter: ImageFilter.blur(sigmaX: _kBlurAmount, sigmaY: _kBlurAmount),
             child: _ActionSheetMainSheet(
               scrollController: _effectiveActionScrollController,
-              hasContent: hasContent,
-              contentSection: Builder(builder: _buildContent),
-              actions: widget.actions,
-              dividerColor: _kActionSheetButtonDividerColor,
+              contentSection: _buildContent(context),
+              actions: widget.actions ?? List<Widget>.empty(),
+              dividerColor: CupertinoDynamicColor.resolve(_kActionSheetButtonDividerColor, context),
             ),
           ),
         ),
@@ -646,6 +1053,7 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
     };
 
     return SafeArea(
+      minimum: const EdgeInsets.only(bottom: _kActionSheetEdgePadding),
       child: ScrollConfiguration(
         // A CupertinoScrollbar is built-in below
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -657,16 +1065,25 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
           child: CupertinoUserInterfaceLevel(
             data: CupertinoUserInterfaceLevelData.elevated,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _kActionSheetEdgeHorizontalPadding,
-                vertical: _kActionSheetEdgeVerticalPadding,
+              padding: EdgeInsets.only(
+                left: _kActionSheetEdgePadding,
+                right: _kActionSheetEdgePadding,
+                top: _topPadding(context),
+                // The bottom padding is set on SafeArea.minimum, allowing it to
+                // be consumed by bottom view padding.
               ),
               child: SizedBox(
-                width: actionSheetWidth - _kActionSheetEdgeHorizontalPadding * 2,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+                width: actionSheetWidth - _kActionSheetEdgePadding * 2,
+                child: _ActionSheetGestureDetector(
+                  child: Semantics(
+                    explicitChildNodes: true,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -686,7 +1103,7 @@ class _CupertinoActionSheetState extends State<CupertinoActionSheet> {
 ///
 ///  * [CupertinoActionSheet], an alert that presents the user with a set of two or
 ///    more choices related to the current context.
-class CupertinoActionSheetAction extends StatelessWidget {
+class CupertinoActionSheetAction extends StatefulWidget {
   /// Creates an action for an iOS-style action sheet.
   const CupertinoActionSheetAction({
     super.key,
@@ -696,7 +1113,10 @@ class CupertinoActionSheetAction extends StatelessWidget {
     required this.child,
   });
 
-  /// The callback that is called when the button is tapped.
+  /// The callback that is called when the button is selected.
+  ///
+  /// The button can be selected by either by tapping on this button or by
+  /// pressing elsewhere and sliding onto this button before releasing.
   final VoidCallback onPressed;
 
   /// Whether this action is the default choice in the action sheet.
@@ -715,37 +1135,98 @@ class CupertinoActionSheetAction extends StatelessWidget {
   final Widget child;
 
   @override
+  State<CupertinoActionSheetAction> createState() => _CupertinoActionSheetActionState();
+}
+
+class _CupertinoActionSheetActionState extends State<CupertinoActionSheetAction>
+    implements _ActionSheetSlideTarget {
+  // |_ActionSheetSlideTarget|
+  @override
+  void didEnter({required bool fromPointerDown}) {}
+
+  // |_ActionSheetSlideTarget|
+  @override
+  void didLeave() {}
+
+  // |_ActionSheetSlideTarget|
+  @override
+  void didConfirm() {
+    widget.onPressed();
+  }
+
+  // Calculates the font size for action sheet buttons.
+  //
+  // The `contextBodySize` is the body font size specified by context. The
+  // return value is the button font size, including the effect of context font
+  // scale factor. Divide by context font scale factor before using in a `Text`.
+  static double _buttonFontSize(double contextBodySize) {
+    // It is observed that the native action sheet buttons use font sizes that
+    // deviate from standard HIG specifications in a non-linear way. The following
+    // table shows the regular body font size vs the button font size:
+    //
+    //  Text scale  | xs |  s |  m |  l | xl | xxl | xxxl | ax1 | ax2 | ax3 | ax4 | ax5
+    //  Body font   | 14 | 15 | 16 | 17 | 19 |  21 |  23  |  28 |  33 |  40 |  47 |  53
+    //  Button font | 21 | 21 | 21 | 21 | 23 |  24 |  24  |  28 |  33 |  40 |  47 |  53
+
+    // For very small or very large text, simple rules can be observed.
+    // For mid-sized text, piecewise linear interpolation is used.
+    return switch (contextBodySize) {
+      <= 17 => 21.0,
+      <= 19 => lerpDouble(21.0, 23.0, (contextBodySize - 17.0)/(19.0 - 17.0))!,
+      <= 21 => lerpDouble(23.0, 24.0, (contextBodySize - 19.0)/(21.0 - 19.0))!,
+      <= 24 => 24.0,
+      _ => contextBodySize,
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // The context scale factor is derived from the current body size and the
+    // standard body size in "large".
+    const double higLargeBodySize = 17.0;
+    final double contextBodySize = MediaQuery.textScalerOf(context).scale(higLargeBodySize);
+    final double contextScaleFactor = contextBodySize / higLargeBodySize;
+    final double fontSize = _buttonFontSize(contextBodySize);
+
     TextStyle style = _kActionSheetActionStyle.copyWith(
-      color: isDestructiveAction
+      // `Text` will scale the provided font size inside, so its parameter is
+      // unscaled first.
+      fontSize: fontSize / contextScaleFactor,
+      color: widget.isDestructiveAction
           ? CupertinoDynamicColor.resolve(CupertinoColors.systemRed, context)
           : CupertinoTheme.of(context).primaryColor,
     );
 
-    if (isDefaultAction) {
+    if (widget.isDefaultAction) {
       style = style.copyWith(fontWeight: FontWeight.w600);
     }
 
+    final double verticalPadding = _kActionSheetButtonVerticalPaddingBase
+        + fontSize * _kActionSheetButtonVerticalPaddingFactor;
+
     return MouseRegion(
       cursor: kIsWeb ? SystemMouseCursors.click : MouseCursor.defer,
-      child: GestureDetector(
-        onTap: onPressed,
+      child: MetaData(
+        metaData: this,
         behavior: HitTestBehavior.opaque,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            minHeight: _kActionSheetButtonHeight,
+            minHeight: _kActionSheetButtonMinHeight,
           ),
           child: Semantics(
             button: true,
+            onTap: widget.onPressed,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 16.0,
-                horizontal: 10.0,
+              padding: EdgeInsets.fromLTRB(
+                _kActionSheetButtonHorizontalPadding,
+                verticalPadding,
+                _kActionSheetButtonHorizontalPadding,
+                verticalPadding,
               ),
               child: DefaultTextStyle(
                 style: style,
                 textAlign: TextAlign.center,
-                child: Center(child: child),
+                child: Center(child: widget.child),
               ),
             ),
           ),
@@ -780,20 +1261,42 @@ class _ActionSheetButtonBackground extends StatefulWidget {
   _ActionSheetButtonBackgroundState createState() => _ActionSheetButtonBackgroundState();
 }
 
-class _ActionSheetButtonBackgroundState extends State<_ActionSheetButtonBackground> {
+class _ActionSheetButtonBackgroundState extends State<_ActionSheetButtonBackground> implements _ActionSheetSlideTarget {
   bool isBeingPressed = false;
 
-  void _onTapDown(TapDownDetails event) {
-    setState(() { isBeingPressed = true; });
-    widget.onPressStateChange?.call(true);
+  void _emitVibration(){
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.android:
+        HapticFeedback.selectionClick();
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        break;
+    }
   }
 
-  void _onTapUp(TapUpDetails event) {
+  // |_ActionSheetSlideTarget|
+  @override
+  void didEnter({required bool fromPointerDown}) {
+    setState(() { isBeingPressed = true; });
+    widget.onPressStateChange?.call(true);
+    if (!fromPointerDown) {
+      _emitVibration();
+    }
+  }
+
+  // |_ActionSheetSlideTarget|
+  @override
+  void didLeave() {
     setState(() { isBeingPressed = false; });
     widget.onPressStateChange?.call(false);
   }
 
-  void _onTapCancel() {
+  // |_ActionSheetSlideTarget|
+  @override
+  void didConfirm() {
     setState(() { isBeingPressed = false; });
     widget.onPressStateChange?.call(false);
   }
@@ -804,22 +1307,19 @@ class _ActionSheetButtonBackgroundState extends State<_ActionSheetButtonBackgrou
     BorderRadius? borderRadius;
     if (!widget.isCancel) {
       backgroundColor = isBeingPressed
-        ? _kPressedColor
-        : CupertinoDynamicColor.resolve(_kActionSheetBackgroundColor, context);
+        ? _kActionSheetPressedColor
+        : _kActionSheetBackgroundColor;
     } else {
       backgroundColor = isBeingPressed
-          ? _kActionSheetCancelPressedColor
-        : CupertinoColors.secondarySystemGroupedBackground;
+        ? _kActionSheetCancelPressedColor
+        : _kActionSheetCancelColor;
       borderRadius = const BorderRadius.all(Radius.circular(_kCornerRadius));
     }
-    return GestureDetector(
-      excludeFromSemantics: true,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
+    return MetaData(
+      metaData: this,
       child: Container(
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: CupertinoDynamicColor.resolve(backgroundColor, context),
           borderRadius: borderRadius,
         ),
         child: widget.child,
@@ -916,15 +1416,13 @@ class _ActionSheetMainSheet extends StatefulWidget {
   const _ActionSheetMainSheet({
     required this.scrollController,
     required this.actions,
-    required this.hasContent,
     required this.contentSection,
     required this.dividerColor,
   });
 
   final ScrollController? scrollController;
-  final List<Widget>? actions;
-  final bool hasContent;
-  final Widget contentSection;
+  final List<Widget> actions;
+  final Widget? contentSection;
   final Color dividerColor;
 
   @override
@@ -975,21 +1473,8 @@ class _ActionSheetMainSheetState extends State<_ActionSheetMainSheet> {
     return false;
   }
 
-  bool _hasActions() => (widget.actions?.length ?? 0) != 0;
-
-  Widget _buildContent({required bool hasActions, required double maxHeight}) {
-    if (!hasActions) {
-      return Flexible(
-        child: widget.contentSection,
-      );
-    }
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: maxHeight,
-      ),
-      child: widget.contentSection,
-    );
-  }
+  bool get _hasContent => widget.contentSection != null;
+  bool get _hasActions => widget.actions.isNotEmpty;
 
   void _onPressedUpdate(int actionIndex, bool state) {
     if (!state) {
@@ -1005,50 +1490,61 @@ class _ActionSheetMainSheetState extends State<_ActionSheetMainSheet> {
     }
   }
 
+  Widget _dividerAndActionsSection(BuildContext context) {
+    if (!_hasActions) {
+      return _empty;
+    }
+    final Color backgroundColor = CupertinoDynamicColor.resolve(_kActionSheetBackgroundColor, context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (_hasContent)
+          _ActionSheetDivider(
+            dividerColor: widget.dividerColor,
+            hidden: false,
+          ),
+        Flexible(
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: _buildOverscroll(),
+              ),
+              NotificationListener<ScrollUpdateNotification>(
+                onNotification: _onScrollUpdate,
+                child: _ActionSheetActionSection(
+                  actions: widget.actions,
+                  scrollController: widget.scrollController,
+                  pressedIndex: _pressedIndex,
+                  dividerColor: widget.dividerColor,
+                  backgroundColor: backgroundColor,
+                  onPressedUpdate: _onPressedUpdate,
+                ),
+              )
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // The content section takes priority for vertical space but must leave at
-    // least `_kActionSheetActionsSectionMinHeight` for the actions section.
-    final Color backgroundColor = CupertinoDynamicColor.resolve(_kActionSheetBackgroundColor, context);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            _buildContent(
-              hasActions: _hasActions(),
-              maxHeight: constraints.maxHeight - _kActionSheetActionsSectionMinHeight - _kDividerThickness,
-            ),
-            if (widget.hasContent && _hasActions())
-              _ActionSheetDivider(
-                dividerColor: widget.dividerColor,
-                hidden: false,
-              ),
-            Flexible(
-              child: Stack(
-                children: <Widget>[
-                  Positioned.fill(
-                    child: _buildOverscroll(),
-                  ),
-                  NotificationListener<ScrollUpdateNotification>(
-                    onNotification: _onScrollUpdate,
-                    child: _ActionSheetActionSection(
-                      actions: widget.actions,
-                      scrollController: widget.scrollController,
-                      pressedIndex: _pressedIndex,
-                      dividerColor: widget.dividerColor,
-                      backgroundColor: backgroundColor,
-                      onPressedUpdate: _onPressedUpdate,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        return _PriorityColumn(
+          top: widget.contentSection ?? _empty,
+          bottom: _dividerAndActionsSection(context),
+          bottomMinHeight: _kActionSheetActionsSectionMinHeight + _kDividerThickness,
         );
       },
     );
   }
+
+  static const Widget _empty = LimitedBox(
+    maxWidth: 0,
+    child: SizedBox(width: double.infinity, height: 0),
+  );
 }
 
 // iOS style layout policy widget for sizing an alert dialog's content section and
@@ -1961,7 +2457,7 @@ class _CupertinoDialogActionsRenderWidget extends MultiChildRenderObjectWidget {
               : _kCupertinoDialogWidth,
       dividerThickness: _dividerThickness,
       dialogColor: CupertinoDynamicColor.resolve(_kDialogColor, context),
-      dialogPressedColor: CupertinoDynamicColor.resolve(_kPressedColor, context),
+      dialogPressedColor: CupertinoDynamicColor.resolve(_kDialogPressedColor, context),
       dividerColor: CupertinoDynamicColor.resolve(CupertinoColors.separator, context),
       hasCancelButton: _hasCancelButton,
     );
@@ -1975,7 +2471,7 @@ class _CupertinoDialogActionsRenderWidget extends MultiChildRenderObjectWidget {
             : _kCupertinoDialogWidth
       ..dividerThickness = _dividerThickness
       ..dialogColor = CupertinoDynamicColor.resolve(_kDialogColor, context)
-      ..dialogPressedColor = CupertinoDynamicColor.resolve(_kPressedColor, context)
+      ..dialogPressedColor = CupertinoDynamicColor.resolve(_kDialogPressedColor, context)
       ..dividerColor = CupertinoDynamicColor.resolve(CupertinoColors.separator, context)
       ..hasCancelButton = _hasCancelButton;
   }
@@ -2516,5 +3012,143 @@ class _RenderCupertinoDialogActions extends RenderBox
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
     return defaultHitTestChildren(result, position: position);
+  }
+}
+
+typedef _TwoChildrenHeights = ({double topChildHeight, double bottomChildHeight});
+
+// A column layout with two widgets, where the top widget expands vertically as
+// needed, and the bottom widget has a minimum height.
+//
+// Both child widgets stretch horizontally to the parent's maximum width
+// constraint, with vertical space allocated in this priority:
+//
+//  1. The `bottom` widget receives its requested height, up to a
+//     `bottomMaxHeight` limit and the container's constraint.
+//  2. The `top` widget receives its requested height, up to the remaining space
+//     in the container.
+//  3. The `bottom` widget receives its requested height, up to any remaining
+//     space in the container.
+//
+// This mirrors the behavior seen in iOS components like action sheets and
+// alerts.
+//
+// Implementing this layout with simple compositing widgets is challenging
+// because:
+//
+//  * The bottom widget should take more than `bottomMinHeight` if the top
+//    widget is short.
+//  * The bottom widget should take less than `bottomMinHeight` if it is
+//    naturally shorter.
+class _PriorityColumn extends MultiChildRenderObjectWidget {
+  _PriorityColumn({
+    required Widget top,
+    required Widget bottom,
+    required this.bottomMinHeight,
+  }) : super(children: <Widget>[top, bottom]);
+
+  final double bottomMinHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderPriorityColumn(
+      bottomMinHeight: bottomMinHeight,
+    );
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderPriorityColumn renderObject) {
+    renderObject
+      .bottomMinHeight = bottomMinHeight;
+  }
+}
+
+class _RenderPriorityColumn extends RenderFlex {
+  _RenderPriorityColumn({
+    List<RenderBox>? children,
+    required double bottomMinHeight,
+  }) : _bottomMinHeight = bottomMinHeight,
+       super(
+         direction: Axis.vertical,
+         mainAxisSize: MainAxisSize.min,
+         crossAxisAlignment: CrossAxisAlignment.stretch,
+       ) {
+    addAll(children);
+  }
+
+  double get bottomMinHeight => _bottomMinHeight;
+  double _bottomMinHeight;
+  set bottomMinHeight(double newValue) {
+    if (newValue != _bottomMinHeight) {
+      _bottomMinHeight = newValue;
+      markNeedsLayout();
+    }
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) {
+    assert(childCount == 2);
+    return firstChild!.getMinIntrinsicHeight(width) + lastChild!.getMinIntrinsicHeight(width);
+  }
+
+  @override
+  double computeMaxIntrinsicHeight(double width) {
+    assert(childCount == 2);
+    return firstChild!.getMaxIntrinsicHeight(width) + lastChild!.getMaxIntrinsicHeight(width);
+  }
+
+  @override
+  @protected
+  Size computeDryLayout(covariant BoxConstraints constraints) {
+    final double width = constraints.maxWidth;
+    final double maxHeight = constraints.maxHeight;
+    final (:double topChildHeight, :double bottomChildHeight) = _childrenHeights(width, maxHeight);
+    return Size(width, topChildHeight + bottomChildHeight);
+  }
+
+  @override
+  void performLayout() {
+    final double width = constraints.maxWidth;
+    final double maxHeight = constraints.maxHeight;
+    final (:double topChildHeight, :double bottomChildHeight) = _childrenHeights(width, maxHeight);
+    size = Size(width, topChildHeight + bottomChildHeight);
+
+    firstChild!.layout(BoxConstraints.tight(Size(width, topChildHeight)), parentUsesSize: true);
+    (firstChild!.parentData! as FlexParentData).offset = Offset.zero;
+
+    lastChild!.layout(BoxConstraints.tight(Size(width, bottomChildHeight)), parentUsesSize: true);
+    (lastChild!.parentData! as FlexParentData).offset = Offset(0, topChildHeight);
+  }
+
+  _TwoChildrenHeights _childrenHeights(double width, double maxHeight) {
+    assert(childCount == 2);
+    final double topIntrinsic = firstChild!.getMinIntrinsicHeight(width);
+    final double bottomIntrinsic = lastChild!.getMinIntrinsicHeight(width);
+    // Try to layout both children as their intrinsic height.
+    if (topIntrinsic + bottomIntrinsic <= maxHeight) {
+      return (
+        topChildHeight: topIntrinsic,
+        bottomChildHeight: bottomIntrinsic,
+      );
+    }
+    // _bottomMinHeight is only effective when bottom actually needs that much.
+    final double effectiveBottomMinHeight = math.min(_bottomMinHeight, bottomIntrinsic);
+    // Try to layout top as intrinsics, as long as the bottom has at least
+    // effectiveBottomMinHeight.
+    if (maxHeight - topIntrinsic >= effectiveBottomMinHeight) {
+      return (
+        topChildHeight: topIntrinsic,
+        bottomChildHeight: maxHeight - topIntrinsic,
+      );
+    }
+    // Try to layout bottom as effectiveBottomMinHeight, as long as top has at
+    // least 0.
+    if (maxHeight >= effectiveBottomMinHeight) {
+      return (
+        topChildHeight: maxHeight - effectiveBottomMinHeight,
+        bottomChildHeight: effectiveBottomMinHeight,
+      );
+    }
+    return (topChildHeight: 0, bottomChildHeight: maxHeight);
   }
 }

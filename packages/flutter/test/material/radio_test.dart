@@ -205,7 +205,7 @@ void main() {
         ),
       ),
     ));
-    final bool isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+    final bool isCupertino = defaultTargetPlatform == TargetPlatform.iOS ||
                          defaultTargetPlatform == TargetPlatform.macOS;
     expect(
       semantics,
@@ -217,10 +217,11 @@ void main() {
           SemanticsFlag.isEnabled,
           SemanticsFlag.isFocusable,
           SemanticsFlag.isChecked,
-          if (isApple) SemanticsFlag.isSelected,
+          if (isCupertino) SemanticsFlag.isSelected,
         ],
         actions: <SemanticsAction>[
           SemanticsAction.tap,
+          if (defaultTargetPlatform != TargetPlatform.iOS) SemanticsAction.focus,
         ],
       ),
     );
@@ -254,6 +255,7 @@ void main() {
           ],
           actions: <SemanticsAction>[
             SemanticsAction.tap,
+            SemanticsAction.focus,
           ],
         ),
       ],
@@ -284,6 +286,7 @@ void main() {
           ],
           actions: <SemanticsAction>[
             SemanticsAction.tap,
+            SemanticsAction.focus,
           ],
         ),
       ],
@@ -310,6 +313,7 @@ void main() {
             SemanticsFlag.isInMutuallyExclusiveGroup,
             SemanticsFlag.isFocusable,  // This flag is delayed by 1 frame.
           ],
+          actions: <SemanticsAction>[SemanticsAction.focus],
         ),
       ],
     ), ignoreRect: true, ignoreTransform: true));
@@ -1855,6 +1859,46 @@ void main() {
     }
   });
 
+  testWidgets('Radio.adaptive respects Radio.mouseCursor', (WidgetTester tester) async {
+    Widget buildApp({required TargetPlatform platform, MouseCursor? mouseCursor}) {
+      return MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: Material(
+          child: Radio<int>.adaptive(
+            value: 1,
+            groupValue: 1,
+            onChanged: (int? i) {},
+            mouseCursor: mouseCursor,
+          ),
+        ),
+      );
+    }
+
+    for (final TargetPlatform platform in <TargetPlatform>[ TargetPlatform.iOS, TargetPlatform.macOS ]) {
+      await tester.pumpWidget(buildApp(platform: platform));
+      final TestGesture gesture = await tester.createGesture(kind: PointerDeviceKind.mouse, pointer: 1);
+
+      // Test default mouse cursor.
+      await gesture.addPointer(location: tester.getCenter(find.byType(CupertinoRadio<int>)));
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(find.byType(CupertinoRadio<int>)));
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        kIsWeb ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      );
+
+      // Test mouse cursor can be configured.
+      await tester.pumpWidget(buildApp(platform: platform, mouseCursor: SystemMouseCursors.forbidden));
+      expect(RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.forbidden);
+
+      // Test Radio.adaptive can resolve a WidgetStateMouseCursor.
+      await tester.pumpWidget(buildApp(platform: platform, mouseCursor: const _SelectedGrabMouseCursor()));
+      expect(RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.grab);
+
+      await gesture.removePointer();
+    }
+  });
+
   testWidgets('Material2 - Radio default overlayColor and fillColor resolves pressed state', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode(debugLabel: 'Radio');
     tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
@@ -1988,4 +2032,19 @@ void main() {
     );
     focusNode.dispose();
   });
+}
+
+class _SelectedGrabMouseCursor extends WidgetStateMouseCursor {
+  const _SelectedGrabMouseCursor();
+
+  @override
+  MouseCursor resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.selected)) {
+      return SystemMouseCursors.grab;
+    }
+    return SystemMouseCursors.basic;
+  }
+
+  @override
+  String get debugDescription => '_SelectedGrabMouseCursor()';
 }

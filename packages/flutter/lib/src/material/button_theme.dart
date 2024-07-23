@@ -2,6 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'button.dart';
+/// @docImport 'button_bar.dart';
+/// @docImport 'dropdown.dart';
+/// @docImport 'elevated_button.dart';
+/// @docImport 'elevated_button_theme.dart';
+/// @docImport 'filled_button.dart';
+/// @docImport 'filled_button_theme.dart';
+/// @docImport 'material.dart';
+/// @docImport 'outlined_button.dart';
+/// @docImport 'outlined_button_theme.dart';
+/// @docImport 'text_button.dart';
+/// @docImport 'text_button_theme.dart';
+/// @docImport 'text_theme.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -9,7 +24,6 @@ import 'color_scheme.dart';
 import 'colors.dart';
 import 'constants.dart';
 import 'material_button.dart';
-import 'material_state.dart';
 import 'theme.dart';
 import 'theme_data.dart' show MaterialTapTargetSize;
 
@@ -238,7 +252,7 @@ class ButtonThemeData with Diagnosticable {
   ///
   /// See also:
   ///
-  ///  * [getPadding], which is used to calculate padding for the [button]'s
+  ///  * [getPadding], which is used to calculate padding for the button's
   ///    child (typically the button's label).
   EdgeInsetsGeometry get padding {
     return _padding ?? switch (textTheme) {
@@ -261,7 +275,7 @@ class ButtonThemeData with Diagnosticable {
   ///
   /// See also:
   ///
-  ///  * [getShape], which is used to calculate the shape of the [button]'s
+  ///  * [getShape], which is used to calculate the shape of the button's
   ///    [Material].
   ShapeBorder get shape {
     return _shape ?? switch (textTheme) {
@@ -391,8 +405,8 @@ class ButtonThemeData with Diagnosticable {
   /// Otherwise the color scheme's [ColorScheme.onSurface] color is returned
   /// with its opacity set to 0.38.
   ///
-  /// If [MaterialButton.textColor] is a [MaterialStateProperty<Color>], it will be
-  /// used as the `disabledTextColor`. It will be resolved in the [MaterialState.disabled] state.
+  /// If [MaterialButton.textColor] is a [WidgetStateProperty<Color>], it will be
+  /// used as the `disabledTextColor`. It will be resolved in the [WidgetState.disabled] state.
   Color getDisabledTextColor(MaterialButton button) {
     return button.textColor ?? button.disabledTextColor ?? colorScheme!.onSurface.withOpacity(0.38);
   }
