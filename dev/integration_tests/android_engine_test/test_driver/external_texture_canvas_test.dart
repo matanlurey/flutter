@@ -11,20 +11,73 @@ void main() async {
     driver = await FlutterDriver.connect();
 
     // Enter immersive mode to hide the system UI.
-    final io.ProcessResult result = await io.Process.run(
+    {
+      final io.ProcessResult result = await io.Process.run(
       'adb',
       <String>[
         'shell',
         'settings',
         'put',
         'global',
-        'policy_control',
-        'immersive.full=*'
+        'sysui_demo_allowed',
+        '1'
       ],
     );
 
-    if (result.exitCode != 0) {
-      fail('Failed to enter immersive mode: ${result.stderr}');
+      if (result.exitCode != 0) {
+        fail('Failed to enter immersive mode: ${result.stderr}');
+      }
+
+      // Hide all notification icons.
+      final io.ProcessResult hideIconsResult = await io.Process.run(
+        'adb',
+        <String>[
+          'shell',
+          'cmd',
+          'statusbar',
+          'icon',
+          'disable',
+        ],
+      );
+
+      if (hideIconsResult.exitCode != 0) {
+        fail('Failed to hide notification icons: ${hideIconsResult.stderr}');
+      }
+
+      // Hide the status bar.
+      final io.ProcessResult hideStatusBarResult = await io.Process.run(
+        'adb',
+        <String>[
+          'shell',
+          'cmd',
+          'statusbar',
+          'disable',
+        ],
+      );
+
+      if (hideStatusBarResult.exitCode != 0) {
+        fail('Failed to hide the status bar: ${hideStatusBarResult.stderr}');
+      }
+
+      // Set the clock to 13:37.
+      final io.ProcessResult setClockResult = await io.Process.run(
+        'adb',
+        <String>[
+          'shell',
+          'am',
+          'broadcast',
+          '-a',
+          'com.android.systemui.demo',
+          '-e',
+          'command',
+          'clock',
+          '13:37',
+        ],
+      );
+
+      if (setClockResult.exitCode != 0) {
+        fail('Failed to set the clock: ${setClockResult.stderr}');
+      }
     }
 
     // Disable animations to make the test more stable.
