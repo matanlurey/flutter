@@ -112,6 +112,10 @@ void main() async {
       fail('Failed to simulate home button press: ${result.stderr}');
     }
 
+    // Wait 2s. Ideally there would be a better way to wait for this;
+    // perhaps something like polling until the app is in the background.
+    await Future<void>.delayed(const Duration(seconds: 2));
+
     // Force a trim memory.
     final io.ProcessResult trimResult = await io.Process.run(
       'adb',

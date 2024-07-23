@@ -12,31 +12,31 @@ See <https://github.com/flutter/flutter/issues/148028> for more information.
 To run a test, assuming you're in `dev/integration_tests/android_engine_test`:
 
 ```sh
-flutter run <lib/main.dart>
+flutter run <lib/external_texture_canvas.dart>
 ```
 
 To run the integration tests:
 
 ```sh
-flutter drive <lib/main.dart>
+flutter drive <lib/external_texture_canvas.dart>
 ```
 
 To update the golden files:
 
 ```sh
-flutter drive <lib/main.dart> --update-goldens
+flutter drive <lib/external_texture_canvas.dart> --update-goldens
 ```
 
 To run with Impeller enabled:
 
 ```sh
-flutter drive <lib/main.dart> --enable-impeller
+flutter drive <lib/external_texture_canvas.dart> --enable-impeller
 ```
 
 To make it easier to view the end-state, use `--keep-app-running`:
 
 ```sh
-flutter drive <lib/main.dart> --keep-app-running
+flutter drive <lib/external_texture_canvas.dart> --keep-app-running
 ```
 
 Note that the golden files are currently stored in the
@@ -55,6 +55,8 @@ Uses a `Texture` rendered from an Android `Canvas` to render a checkerboard:
 <img src="test_driver/golden/checkerboard.png" width="200">
 
 ### `lib/external_texture_media.dart`
+
+WIP.
 
 ## Limitations
 
