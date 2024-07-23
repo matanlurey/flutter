@@ -22,7 +22,7 @@ class DrawCheckerboardPlugin : FlutterPlugin, MethodCallHandler, DefaultLifecycl
     ActivityAware {
     companion object {
         const val SQUARES = 8
-        const val IMAGE_READER_WORKAROUND = false
+        const val IMAGE_READER_WORKAROUND = true
     }
 
     private lateinit var channel: MethodChannel
