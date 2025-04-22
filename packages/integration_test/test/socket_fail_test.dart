@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -21,7 +22,10 @@ Future<void> main() async {
   test('Prints an appropriate message on socket exception', () async {
     bool gotStateError = false;
     try {
-      await binding.enableTimeline(httpClient: SocketExceptionHttpClient());
+      await binding.enableTimeline(
+        info: ServiceProtocolInfo(Uri.https('foo', 'bar')),
+        httpClient: SocketExceptionHttpClient(),
+      );
     } on StateError catch (e) {
       gotStateError = true;
       expect(e.toString(), contains('This may happen if DDS is enabled'));

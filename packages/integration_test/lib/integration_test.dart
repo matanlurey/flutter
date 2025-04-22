@@ -251,13 +251,14 @@ https://docs.flutter.dev/testing/integration-tests
     List<String> streams = const <String>['all'],
     @visibleForTesting vm.VmService? vmService,
     @visibleForTesting HttpClient? httpClient,
+    @visibleForTesting developer.ServiceProtocolInfo? info,
   }) async {
     assert(streams.isNotEmpty);
     if (vmService != null) {
       _vmService = vmService;
     }
     if (_vmService == null) {
-      final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
+      info ??= await developer.Service.getInfo();
       assert(info.serverUri != null);
       final String address = 'ws://localhost:${info.serverUri!.port}${info.serverUri!.path}ws';
       try {
