@@ -589,17 +589,19 @@ targets:
     recipe: flutter/docs
     presubmit: false
     backfill: false
-    # This means "allow this to be scheduled by the release/release_builder"
-    # recipe. Normally we'd use "schedule: true", but that *also* means "do not
-    # run this in normal presubmit/postsubmit", and we do want it to run in
-    # postsubmit for the "master" channel. Sorry.
-    #
-    # See https://github.com/flutter/flutter/issues/168709 for details.
-    schedule_during_release_override: true
     timeout: 60
     dimensions:
       os: "Linux"
     properties:
+      # ⚠️ Do not copy this flag to other targets without asking the infra team ⚠️
+      #
+      # This means "run this as part of the release builder and not postsubmit".
+      # Normally we'd use "schedule: true", but that *also* means "do not run
+      # this in normal presubmit/postsubmit", and we do want it to run in
+      # postsubmit for the "master" channel. Sorry.
+      #
+      # See https://github.com/flutter/flutter/issues/168709 for details.
+      release_build: "true"
       cores: "32"
       dependencies: >-
         [
